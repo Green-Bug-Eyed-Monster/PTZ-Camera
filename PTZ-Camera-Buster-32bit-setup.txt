@@ -245,7 +245,7 @@ free
 
 
 ----------------------------------------------------------
-              Install motion and MotionEye
+              Install Motion and MotionEye
 ----------------------------------------------------------
 
 // First install dependencies:
@@ -253,7 +253,7 @@ free
 sudo apt-get install ffmpeg libmariadb3 libpq5 libmicrohttpd12 -y
 
 
-// Install Buster version of motion:
+// Install Buster version of Motion:
 
 wget https://github.com/Motion-Project/motion/releases/download/release-4.3.2/pi_buster_motion_4.3.2-1_armhf.deb
 
@@ -268,7 +268,7 @@ rm pi_buster_motion_4.3.2-1_armhf.deb
 sudo apt-get install python-pip python-dev libssl-dev libcurl4-openssl-dev libjpeg-dev libz-dev -y
 
 
-// Install motioneye, which will automatically pull Python dependencies:
+// Install MotionEye, which will automatically pull Python dependencies:
 
 pip install motioneye
 
@@ -285,7 +285,7 @@ sudo cp /home/<YOUR_USERNAME>/.local/share/motioneye/extra/motioneye.conf.sample
 sudo mkdir -p /var/lib/motioneye
 
 
-// To automatically run motioneye at startup, write a copy of this
+// To automatically run MotionEye at startup, write a copy of this
 // init script to the systemd folder as follows:
 
 sudo nano /etc/systemd/system/motioneye.service
@@ -305,13 +305,15 @@ WantedBy=multi-user.target
 ```
 
 
-// Backup old motioneye camera control files.
+// Backup old MotionEye camera control files.
 
 sudo cp /home/<YOUR_USERNAME>/.local/lib/python2.7/site-packages/motioneye/mmalctl.py \
         /home/<YOUR_USERNAME>/.local/lib/python2.7/site-packages/motioneye/mmalctl.py.bak
 
 
-// Make old motioneye compatible with new vcgencmd command.
+// Make old MotionEye compatible with new vcgencmd command.
+// (Here's where you might become stuck using a more recent,less-affordable
+//  Pi camera. - Sorry, I didn't have one available for testing.)
 
 nano /home/<YOUR_USERNAME>/.local/lib/python2.7/site-packages/motioneye/mmalctl.py
 
@@ -324,7 +326,7 @@ find and replace:   if d.get('detected') == d.get('supported') == '1':
 with:               if d.get('detected', '').rstrip(',') == d.get('supported') == '1':
 
 
-// Start and enable motioneye so it will be available at next boot:
+// Start and enable MotionEye so it will be available at next boot:
 
 sudo systemctl daemon-reload
 
@@ -340,7 +342,7 @@ sudo systemctl status motioneye
 sudo reboot
 
 
-// If you ever need to keep motioneye up to date, use these commands:
+// If you ever need to keep MotionEye up to date, use these commands:
 
 pip install motioneye --upgrade
 
@@ -352,15 +354,15 @@ sudo systemctl restart motioneye
 http://camera.local:8765/
 
 username: admin
-password:     (blank)
+password: (blank)
 
 
 
 ----------------------------------------------------------
-              Install node.js v12.22.12
+              Install Node.js v12.22.12
 ----------------------------------------------------------
 
-// Install Node Version Manager.
+// Install Node,js Version Manager.
 
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | bash
 
@@ -448,7 +450,7 @@ cd ~/node.js/accelstepper-module
 npm install      // Ignore numerous warnings
 
 
-// Test the project webpage served by Node.
+// Test the project webpage served by Node.js.
 
 node index.js
 
@@ -460,7 +462,7 @@ Ctrl-C
 
 
 
-// To run our Node application at boot, create another systemd unit:
+// To run our Node.js application at boot, create another systemd unit:
 
 sudo nano /etc/systemd/system/accelstepper.service
 
