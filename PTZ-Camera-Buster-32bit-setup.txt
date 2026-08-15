@@ -59,7 +59,7 @@ xz -dk 2022-04-04-raspios-buster-armhf-lite.img.xz
                        Enable SSH
 ----------------------------------------------------------
 
-// Mount the SD card and create an empty file in the /boot folder named: 
+// Mount the SD card and create an empty file in it's /boot folder named: 
 
 cd ?/boot
 
