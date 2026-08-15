@@ -1,0 +1,506 @@
+
+// In the following, you should make the following substitutions:
+
+<YOUR_USERNAME>         i.e. joebloggs
+
+<YOUR_PASSWORD>         i.e. abc123 
+
+<YOUR_COUNRTY_CODE>     i.e. AU
+
+<YOUR_NETWORK_SSID>     etc.
+
+<YOUR_NETWORD_PASSWORD> 
+
+// *** It may be simpler to do a text 'search and replace' for each key, 
+// to a working copy of this document.
+
+
+
+// Download the following image of the Raspbian Buster 32-bit OS, along with it's sha256 checksum, and verify the download.
+
+https://downloads.raspberrypi.org/raspios_oldstable_lite_armhf/images/raspios_oldstable_lite_armhf-2022-04-07/2022-04-04-raspios-buster-armhf-lite.img.xz
+
+https://downloads.raspberrypi.org/raspios_oldstable_lite_armhf/images/raspios_oldstable_lite_armhf-2022-04-07/2022-04-04-raspios-buster-armhf-lite.img.xz.sha256	
+
+sha256sum 2022-04-04-raspios-buster-armhf-lite.img.xz
+
+    42fd907a0da36b8a8ce9db9cd1cb77746b6a10c4b77f8d0ae0b8065a3b358a37  2022-04-04-raspios-buster-armhf-lite.img.xz
+
+
+
+// Extract the compressed image, preserving the original.
+
+xz -dk 2022-04-04-raspios-buster-armhf-lite.img.xz
+
+
+
+// You may use the Raspberry Pi Imager to flash the image to an SD card. If so, configure your installation
+// to enable ssh and configure your WiFi settings, username and password, similarly to how we do this below.
+
+
+// For an unconfigured image written to the SD card, with something like balenaEtcher, you'll have to do the
+// customisation manually as follows:
+
+
+----------------------------------------------------------
+                       Enable SSH
+----------------------------------------------------------
+
+// Mount the SD card and create an empty file in the /boot folder named: 
+
+cd ?/boot
+
+touch ssh
+
+
+----------------------------------------------------------
+                       Setup Wifi
+----------------------------------------------------------
+
+// Create you WPA supplicant file, and enter content as follows:
+
+cd ?/boot
+
+nano wpa_supplicant.conf
+
+```
+country=<YOUR_COUNRTY_CODE>
+
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+update_config=1
+ap_scan=1
+
+network={
+    ssid="<YOUR_NETWORK_SSID>"
+    psk="<YOUR_NETWORD_PASSWORD>"
+    key_mgmt=WPA-PSK
+}
+```
+
+
+// Insert the SD card in your Pi, boot and wait until it connects to your network by WiFi.
+
+// Login to the Pi by secure shell (SSH), using the default Raspbian credentials:
+
+username: pi
+
+password: raspberry
+
+
+
+----------------------------------------------------------
+                     Replace Pi user
+----------------------------------------------------------
+
+// Create a new user, assign a password, give the new user 
+// the same privileges as pi, then remove pi user:
+
+sudo adduser <YOUR_USERNAME>
+
+sudo usermod -aG sudo <YOUR_USERNAME>
+
+
+// Logout, then login again using the new user's credentials, then remove the old pi account:
+
+sudo deluser --remove-home pi
+
+
+// Alter new user group memberships as follows. This will allow your
+// new user to access the camera and USB serial ports:
+
+sudo usermod -aG video <YOUR_USERNAME>     // add user to video group
+
+sudo usermod -aG dialout <YOUR_USERNAME>   // add user to dialout group (for /dev/ttyUSB0)
+
+sudo reboot
+
+
+
+----------------------------------------------------------
+        Remove anoying sudo password requirement 
+----------------------------------------------------------
+
+sudo visudo
+
+// Add this line to to *END* of the file:
+
+<YOUR_USERNAME> ALL=(ALL:ALL) NOPASSWD: ALL
+
+
+// Logout, then log back in.
+
+
+
+----------------------------------------------------------
+                   Update & Upgrade
+----------------------------------------------------------
+
+// Adjust package source lists as follows:
+
+sudo nano /etc/apt/sources.list
+
+// Make sure just this line is available and is uncommented.
+
+deb https://legacy.raspbian.org/raspbian/ buster main contrib non-free rpi
+
+
+sudo nano /etc/apt/sources.list.d/raspi.list
+
+// Make sure just this line is available and is uncommented.
+
+deb http://archive.raspberrypi.org/debian/ buster main
+
+
+sudo apt update --allow-releaseinfo-change
+
+sudo apt upgrade
+
+// Go make coffee
+
+
+
+----------------------------------------------------------
+                      raspi-config
+----------------------------------------------------------
+
+sudo raspi-config
+
+Set the Pi's hostname to exactly: camera
+Set camera support: enabled
+Adjust the GPU memory allocation to: 256MB
+Adjust timezone to suit your locale.
+
+
+
+----------------------------------------------------------
+     Constrain mDNS-Avahi hostname resolver to IPv4
+----------------------------------------------------------
+
+sudo nano /etc/avahi/avahi-daemon.conf
+
+[server]
+use-ipv4=yes
+#use-ipv6=yes
+use-ipv6=no
+
+
+
+----------------------------------------------------------
+
+                      Grow Swapfile
+
+----------------------------------------------------------
+
+// To be able to install Node without it hanging due to lack of memory
+// (regardless of the GPU memory allocation), we'll have to expand
+// the system's swapfile.
+
+// Install dphys-swapfile
+
+sudo apt update
+
+sudo apt install dphys-swapfile
+
+// Turn swapfile off
+
+sudo dphys-swapfile swapoff
+
+// Increase it's size
+
+sudo nano /etc/dphys-swapfile
+
+CONF_SWAPSIZE=512
+
+// Delete the original swap file and recreate it
+
+sudo dphys-swapfile setup
+
+// Re-enable swapfile
+
+sudo dphys-swapfile swapon
+
+sudo reboot
+
+// Check the new size.
+
+free
+                  total        used        free      shared  buff/cache   available
+    Mem:         243560       36144      138528        1876       68888      155564
+    Swap:        524284           0      524284
+
+
+
+
+----------------------------------------------------------
+              Install motion and MotionEye
+----------------------------------------------------------
+
+// First install dependencies:
+
+sudo apt-get install ffmpeg libmariadb3 libpq5 libmicrohttpd12 -y
+
+
+// Install Buster version of motion:
+
+wget https://github.com/Motion-Project/motion/releases/download/release-4.3.2/pi_buster_motion_4.3.2-1_armhf.deb
+
+sudo dpkg -i pi_buster_motion_4.3.2-1_armhf.deb
+
+rm pi_buster_motion_4.3.2-1_armhf.deb
+
+
+
+// Install some more dependencies:
+
+sudo apt-get install python-pip python-dev libssl-dev libcurl4-openssl-dev libjpeg-dev libz-dev -y
+
+
+// Install motioneye, which will automatically pull Python dependencies:
+
+pip install motioneye
+
+
+// Prepare the configuration directory:
+
+sudo mkdir -p /etc/motioneye
+
+sudo cp /home/<YOUR_USERNAME>/.local/share/motioneye/extra/motioneye.conf.sample /etc/motioneye/motioneye.conf
+
+
+// Create the media directory:
+
+sudo mkdir -p /var/lib/motioneye
+
+
+// To automatically run motioneye at startup, write a copy of this
+// init script to the systemd folder as follows:
+
+sudo nano /etc/systemd/system/motioneye.service
+
+```
+[Unit]
+Description=motionEye Server
+After=network.target
+
+[Service]
+Environment="PYTHONPATH=/home/<YOUR_USERNAME>/.local/lib/python2.7/site-packages"
+ExecStart=/home/<YOUR_USERNAME>/.local/bin/meyectl startserver -c /etc/motioneye/motioneye.conf
+Restart=on-abort
+
+[Install]
+WantedBy=multi-user.target
+```
+
+
+// Backup old motioneye camera control files.
+
+sudo cp /home/<YOUR_USERNAME>/.local/lib/python2.7/site-packages/motioneye/mmalctl.py \
+        /home/<YOUR_USERNAME>/.local/lib/python2.7/site-packages/motioneye/mmalctl.py.bak
+
+
+// Make old motioneye compatible with new vcgencmd command.
+
+nano /home/<YOUR_USERNAME>/.local/lib/python2.7/site-packages/motioneye/mmalctl.py
+
+find and replace:   d = dict(p.split('=', 1) for p in support.split())
+
+with:               d = dict(p.split('=', 1) for p in support.split() if '=' in p)
+
+find and replace:   if d.get('detected') == d.get('supported') == '1':
+
+with:               if d.get('detected', '').rstrip(',') == d.get('supported') == '1':
+
+
+// Start and enable motioneye so it will be available at next boot:
+
+sudo systemctl daemon-reload
+
+sudo systemctl enable motioneye
+
+sudo systemctl start motioneye
+
+sudo systemctl status motioneye
+
+
+// Reboot
+
+sudo reboot
+
+
+// If you ever need to keep motioneye up to date, use these commands:
+
+pip install motioneye --upgrade
+
+sudo systemctl restart motioneye
+
+
+// You should now be able to browse the MotionEye UI at:
+
+http://camera.local:8765/
+
+username: admin
+password:     (blank)
+
+
+
+----------------------------------------------------------
+              Install node.js v12.22.12
+----------------------------------------------------------
+
+// Install Node Version Manager.
+
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | bash
+
+
+// Logout, then back in.
+
+
+// Check the nvm version.
+
+nvm -v
+  0.39.3
+
+
+// Install Node.js version 12.22.12.
+
+nvm install 12.22.12
+
+
+// Create our project's parent folder:
+
+sudo mkdir ~/node.js
+
+cd ~/node.js
+
+
+// Select the Node.js version to use here.
+
+nvm use 12.22.12                                // creates a package.json file in ~/node.js/
+  Now using node v12.22.12 (npm v6.14.16)
+  
+
+// Check the Node.js version in use here.
+
+node -v
+  v12.22.12
+  
+
+// Set a default alias for the Node.js version in use.
+
+nvm alias default 12.22.12
+
+
+
+
+
+----------------------------------------------------------
+          Install the accelstepper-module project
+----------------------------------------------------------
+
+// Adjust some permissions that will allow us sftp access 
+// to the parent folder, for later fine-tuning:
+
+sudo chmod -R 755 ~/node.js
+
+sudo chown -R <YOUR_USERNAME>:<YOUR_USERNAME> ~/node.js
+
+
+// Install git:
+
+sudo apt update
+
+sudo apt install git
+
+
+// Install the project folder and files:
+
+cd ~/node.js
+git clone --depth 1 https://github.com/Green-Bug-Eyed-Monster/PTZ-Camera.git .tmp-ptz
+cp -r .tmp-ptz/accelstepper-module .
+rm -rf .tmp-ptz
+
+
+
+// Install some further prerequisites:
+
+sudo apt update
+
+sudo apt install -y build-essential python3 g++ make
+
+
+// Install project JavaScript module dependencies:
+
+cd ~/node.js/accelstepper-module
+
+npm install      // Ignore numerous warnings
+
+
+// Test the project webpage served by Node.
+
+node index.js
+
+http://camera.local:3000/
+
+// You should see program debug output in your shell, as joystick inputs are manipulated.
+
+Ctrl-C
+
+
+
+// To run our Node application at boot, create another systemd unit:
+
+sudo nano /etc/systemd/system/accelstepper.service
+
+```
+[Unit]
+Description=AccelStepper Node.js Controller
+After=network.target
+
+[Service]
+Type=simple
+User=<YOUR_USERNAME>
+WorkingDirectory=/home/<YOUR_USERNAME>/node.js/accelstepper-module
+ExecStart=/home/<YOUR_USERNAME>/.nvm/versions/node/v12.22.12/bin/node /home/<YOUR_USERNAME>/node.js/accelstepper-module/index.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+
+// Start and enable the project so it will be available at next boot:
+
+sudo systemctl daemon-reload
+
+sudo systemctl start accelstepper
+
+sudo systemctl status accelstepper
+
+sudo systemctl enable accelstepper
+
+
+// Reboot
+
+sudo reboot
+
+
+// Check that project starts after a reboot.
+
+http://camera.local:3000/
+
+
+
+// Project debug output is now obscured, though you can examine it with:
+
+sudo journalctl -u accelstepper -f
+
+Ctrl-C
+
+
+
+
+
+
+
+
