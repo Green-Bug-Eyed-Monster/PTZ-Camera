@@ -1,0 +1,231 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Node.js HTTP Server - Joystick PTZ</title>
+</head>
+<style>
+  body {
+    font-family: sans-serif;
+  }
+  .display-box {
+      margin-top: 20px;
+      border: 1px solid #ccc;
+      padding: 10px;
+      min-height: 50px;
+  }
+  .error {
+    color: red;
+  }
+</style>
+<body>
+  <!-- Embedable frame sequence URL of MotionEye on ubuntu-20.04.4-preinstalled-server-arm64+raspi -->
+  <img src="http://camera.local:8081/">
+  <div id="pan" class="display-box"></div>
+  <div id="tilt" class="display-box"></div>
+  <div id="zoom" class="display-box"></div>
+  <div id="joystick" class="display-box"></div>
+  <div id="steppers" class="display-box"></div>
+  <div id="axes" class="display-box"></div>
+  <div id="error" class="display-box"></div>
+</body>
+<script>
+  const DEAD_BAND = 0.05;
+
+  var putIntervalID;
+  var getIntervalID;
+
+  // State variable to track if joystick was outside deadband in the previous loop
+  // Initialize to true to ensure an update is sent if starting within the deadband,
+  // or if the first movement is detected.
+  let wasOutsideDeadband = true;
+
+  window.addEventListener("gamepadconnected", function() {
+    // Reset state on connect, ensures initial state is sent
+    wasOutsideDeadband = true;
+    // Call PUT handler every 100ms.
+    putIntervalID = setInterval(putLoop, 100);
+    // Call GET handler every 250ms.
+    getIntervalID = setInterval(getLoop, 250);
+  });
+
+  window.addEventListener("gamepaddisconnected", function() {
+    clearInterval(putIntervalID);
+    clearInterval(getIntervalID);
+    // Optionally reset state or clear display divs here
+    document.getElementById('pan').innerHTML = '';
+    document.getElementById('tilt').innerHTML = '';
+    document.getElementById('zoom').innerHTML = '';
+    document.getElementById('joystick').innerHTML = '<p>Gamepad disconnected.</p>';
+    document.getElementById('steppers').innerHTML = '';
+    document.getElementById('axes').innerHTML = '';
+    document.getElementById('error').innerHTML = '';
+  });
+
+  function buttonPressed(b) {
+    if (typeof(b) == "object") {
+      // Access true or false pressed property of b.
+      return b.pressed;
+    }
+    return b == 1.0; // Return true if b numeric 1.0, false otherwise.
+  }
+
+  const putLoop = async () => { 
+    // Returns all connected gamepads.
+    var gamepads = navigator.getGamepads();
+
+    // Ensure gamepads array and the first gamepad exist
+    if (!gamepads || !gamepads[0]) {
+        // Display a message or handling this state
+        console.warn("Gamepad not found in putLoop");
+        return;
+    }
+
+    // Get the first gamepad.
+    var gp = gamepads[0];
+
+    // Acquire control positions between -1.0000 to 1.0000
+    var pan  = parseFloat(gp.axes[2].toFixed(4));  // Right X axis
+    var tilt = -parseFloat(gp.axes[3].toFixed(4)); // Right Y axis
+    var zoom = parseFloat(gp.axes[1].toFixed(4));  // Left  Z axis
+
+    // Determine if the joystick is currently inside the deadband for all relevant axes
+    const isInsideDeadband = ((Math.abs(pan) < DEAD_BAND)  &&
+                              (Math.abs(tilt) < DEAD_BAND) &&
+                              (Math.abs(zoom) < DEAD_BAND));
+
+    let shouldSendUpdate = false;
+
+    if (isInsideDeadband) {
+      // Currently inside the deadband
+      if (wasOutsideDeadband) {
+        // We just entered the deadband, send one update
+        shouldSendUpdate = true;
+        wasOutsideDeadband = false; // Update state: now inside
+      }
+      // else: Already inside, do nothing
+    } else {
+      // Currently outside the deadband
+      shouldSendUpdate = true;   // Always send updates when outside
+      wasOutsideDeadband = true; // Update state: now outside
+    }
+
+    if (shouldSendUpdate) {
+      console.log(`Sending update: pan=${pan}, tilt=${tilt}, zoom=${zoom}`); // Optional: for debugging
+      try {
+        // PUT the data - consider sending all in one request if the backend supports it
+        const panResponse  = await sendPutJoystickRequest("pan", pan);
+        const tiltResponse = await sendPutJoystickRequest("tilt", tilt);
+        const zoomResponse = await sendPutJoystickRequest("zoom", zoom);
+
+        // ...then display the responses in the respective divs
+        const panDiv  = document.getElementById('pan');
+        const tiltDiv = document.getElementById('tilt');
+        const zoomDiv = document.getElementById('zoom');
+
+        panDiv.innerHTML  = `<p>PUT /joystick 'pan': ${pan.toFixed(4)} | Response: ${JSON.stringify(panResponse)}</p>`;
+        tiltDiv.innerHTML = `<p>PUT /joystick 'tilt': ${tilt.toFixed(4)} | Response: ${JSON.stringify(tiltResponse)}</p>`;
+        zoomDiv.innerHTML = `<p>PUT /joystick 'zoom': ${zoom.toFixed(4)} | Response: ${JSON.stringify(zoomResponse)}</p>`;
+
+      } catch (error) {
+          // Error is already displayed by sendPutJoystickRequest, but log specific context
+          console.error(`Error during PUT sequence in putLoop: ${error}`);
+          displayError(`Error updating pan/tilt/zoom: ${error.message || error}`);
+      }
+    }
+    // No explicit return needed for async arrow function if nothing is returned
+  };
+
+  const getLoop = async () => { 
+    try {
+      // GET the data then display the response in the respective divs
+      // Using await insures calls complete sequentially.
+      const joystickResponse = await sendGetJoystickRequest();
+      const steppersResponse = await sendGetSteppersRequest();
+      const axesResponse     = await sendGetAxesRequest();
+
+      const joystickDiv = document.getElementById('joystick');
+      const steppersDiv = document.getElementById('steppers');
+      const axesDiv     = document.getElementById('axes');
+
+      joystickDiv.innerHTML = `<p>GET /joystick Response: ${JSON.stringify(joystickResponse)}</p>`;
+      steppersDiv.innerHTML = `<p>GET /steppers Response: ${JSON.stringify(steppersResponse)}</p>`;
+      axesDiv.innerHTML     = `<p>GET /axes Response: ${JSON.stringify(axesResponse)}</p>`;
+
+    } catch (error) {
+        console.error(`Error during GET sequence in getLoop: ${error}`);
+    }
+    // No explicit return needed
+  };
+
+  async function sendPutJoystickRequest(key, value) {
+    const data = { [key]: value };
+    try {
+      const response = await fetch('/joystick', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const responseData = await response.json();
+      return responseData;
+    } catch (error) {
+      console.error(`PUT /joystick Error (${key}=${value}):`, error);
+      displayError(`PUT Error: ${error}`);
+      throw error; // Re-throw the error to be caught by the caller
+    }
+  }
+
+  async function sendGetJoystickRequest() {
+    try {
+      const response = await fetch('/joystick', { method: 'GET' });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      displayError(`GET /joystick Error: ${error}`);
+      throw error; // Re-throw the error to be caught by the caller
+    }
+  }
+
+  async function sendGetSteppersRequest() {
+    try {
+      const response = await fetch('/steppers', { method: 'GET' });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      displayError(`GET /steppers Error: ${error}`);
+      throw error; // Re-throw the error to be caught by the caller
+    }
+  }
+
+  async function sendGetAxesRequest() {
+    try {
+      const response = await fetch('/axes', { method: 'GET' });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      displayError(`GET /axes Error: ${error}`);
+      throw error; // Re-throw the error to be caught by the caller
+    }
+  }
+
+  function displayError(message) {
+    const errorDiv = document.getElementById('error');
+    errorDiv.innerHTML = `<p class="error">${message}</p>`;
+  }
+
+</script>
+</html>
