@@ -1,20 +1,33 @@
 
-// In the following, you should make the following substitutions:
+----------------------------------------------------------
+    PTZ Camera OS and Application Installation Guide
+----------------------------------------------------------
 
-<YOUR_USERNAME>         i.e. joebloggs
+Tested August 15th, 2026.
 
-<YOUR_PASSWORD>         i.e. abc123 
-
-<YOUR_COUNRTY_CODE>     i.e. AU
-
-<YOUR_NETWORK_SSID>     etc.
-
-<YOUR_NETWORD_PASSWORD> 
-
-// *** It may be simpler to do a text 'search and replace' for each key, 
-// to a working copy of this document.
+Copyright © 2026, Murray R. Van Luyn. <green@bug-eyed.monster>
 
 
+
+// You should begin by making a copy of this file, then perform a 
+// text 'search and replace' of each of the following keys throughout.
+// This will yield instructions that you can simply copy and paste.
+
+<YOUR_USERNAME>           Replace with your intended username for the Raspberry Pi install. i.e. joebloggs
+
+<YOUR_PASSWORD>           Replace with your intended password for the Raspberry Pi install. i.e. abc123 
+
+<YOUR_COUNRTY_CODE>       i.e. AU, GB, US...
+
+<YOUR_NETWORK_SSID>       etc.
+
+<YOUR_NETWORD_PASSWORD>   etc.
+
+
+
+----------------------------------------------------------
+      Download, verify and install the OS image
+----------------------------------------------------------
 
 // Download the following image of the Raspbian Buster 32-bit OS, along with it's sha256 checksum, and verify the download.
 
