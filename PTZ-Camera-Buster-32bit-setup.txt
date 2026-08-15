@@ -130,7 +130,7 @@ sudo reboot
 
 
 ----------------------------------------------------------
-        Remove anoying sudo password requirement 
+        Remove annoying sudo password requirement 
 ----------------------------------------------------------
 
 sudo visudo
