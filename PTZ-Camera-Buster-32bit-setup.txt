@@ -186,19 +186,6 @@ Adjust timezone to suit your locale.
 
 
 ----------------------------------------------------------
-     Constrain mDNS-Avahi hostname resolver to IPv4
-----------------------------------------------------------
-
-sudo nano /etc/avahi/avahi-daemon.conf
-
-[server]
-use-ipv4=yes
-#use-ipv6=yes
-use-ipv6=no
-
-
-
-----------------------------------------------------------
 
                       Grow Swapfile
 
